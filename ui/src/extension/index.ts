@@ -1,6 +1,7 @@
 import {
   CellClassParams,
   CellClickedEvent,
+  ColumnState,
   createGrid,
   GridApi,
   GridOptions,
@@ -36,6 +37,64 @@ import 'notyf/notyf.min.css';
 import './index.scss';
 
 let notyf: Notyf | undefined;
+
+type StoredColumnState = {
+  version: 1;
+  state: ColumnState[];
+};
+
+const queueColumnStateStorageKey = 'agent_scheduler:queue_col_state';
+const historyColumnStateStorageKey = 'agent_scheduler:history_col_state';
+
+const queueParamColumnIds = [
+  'params.prompt',
+  'params.negative_prompt',
+  'params.checkpoint',
+  'params.sampler_name',
+  'params.steps',
+  'params.cfg_scale',
+  'params.size',
+  'params.batch',
+];
+
+const saveColumnState = (key: string, state: ColumnState[]) => {
+  const storedState: StoredColumnState = {
+    version: 1,
+    state,
+  };
+  localStorage.setItem(key, JSON.stringify(storedState));
+};
+
+const readColumnState = (
+  key: string,
+  requiredVisibleColumnIds: string[] = []
+): ColumnState[] | undefined => {
+  const colStateStr = localStorage.getItem(key);
+  if (colStateStr == null) return;
+
+  try {
+    const parsed = JSON.parse(colStateStr) as StoredColumnState | ColumnState[];
+    const state = Array.isArray(parsed) ? parsed : parsed.state;
+    if (!Array.isArray(state)) {
+      localStorage.removeItem(key);
+      return;
+    }
+
+    const hasRequiredVisibleColumn = requiredVisibleColumnIds.some(colId => {
+      const col = state.find(item => item.colId === colId);
+      return col == null || col.hide !== true;
+    });
+    if (requiredVisibleColumnIds.length > 0 && !hasRequiredVisibleColumn) {
+      localStorage.removeItem(key);
+      return;
+    }
+
+    return state;
+  } catch {
+    localStorage.removeItem(key);
+  }
+  return undefined;
+};
 
 declare global {
   let opts: object;
@@ -964,18 +1023,15 @@ function initPendingTab() {
     ],
     onColumnMoved: ({ api }) => {
       const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:queue_col_state', colStateStr);
+      saveColumnState(queueColumnStateStorageKey, colState);
     },
     onSortChanged: ({ api }) => {
       const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:queue_col_state', colStateStr);
+      saveColumnState(queueColumnStateStorageKey, colState);
     },
     onColumnResized: ({ api }) => {
       const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:queue_col_state', colStateStr);
+      saveColumnState(queueColumnStateStorageKey, colState);
     },
     onGridReady: ({ api }) => {
       // init quick search input
@@ -1004,9 +1060,8 @@ function initPendingTab() {
       updateRowData(store.getState());
 
       // restore col state
-      const colStateStr = localStorage.getItem('agent_scheduler:queue_col_state');
-      if (colStateStr != null) {
-        const colState = JSON.parse(colStateStr);
+      const colState = readColumnState(queueColumnStateStorageKey, queueParamColumnIds);
+      if (colState != null) {
         api.applyColumnState({ state: colState, applyOrder: true });
       }
     },
@@ -1254,18 +1309,15 @@ function initHistoryTab() {
     suppressRowDeselection: true,
     onColumnMoved: ({ api }) => {
       const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:history_col_state', colStateStr);
+      saveColumnState(historyColumnStateStorageKey, colState);
     },
     onSortChanged: ({ api }) => {
       const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:history_col_state', colStateStr);
+      saveColumnState(historyColumnStateStorageKey, colState);
     },
     onColumnResized: ({ api }) => {
       const colState = api.getColumnState();
-      const colStateStr = JSON.stringify(colState);
-      localStorage.setItem('agent_scheduler:history_col_state', colStateStr);
+      saveColumnState(historyColumnStateStorageKey, colState);
     },
     onGridReady: ({ api }) => {
       // init quick search input
@@ -1286,9 +1338,8 @@ function initHistoryTab() {
       updateRowData(store.getState());
 
       // restore col state
-      const colStateStr = localStorage.getItem('agent_scheduler:history_col_state');
-      if (colStateStr != null) {
-        const colState = JSON.parse(colStateStr);
+      const colState = readColumnState(historyColumnStateStorageKey);
+      if (colState != null) {
         api.applyColumnState({ state: colState, applyOrder: true });
       }
     },

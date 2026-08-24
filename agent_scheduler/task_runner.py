@@ -347,7 +347,37 @@ class TaskRunner:
                 is_img2img = task.type == "img2img"
                 log.info(f"[AgentScheduler] Executing task {task_id}")
 
-                task_args = self.parse_task_args(task)
+                try:
+                    task_args = self.parse_task_args(task)
+                except Exception as e:
+                    message = f"Failed to load task parameters: {e}"
+                    log.error(f"[AgentScheduler] Task {task_id} failed before execution: {message}")
+                    log.debug(traceback.format_exc())
+                    task.status = TaskStatus.FAILED
+                    task.result = message
+                    try:
+                        task_manager.update_task(task)
+                    except Exception as update_error:
+                        log.error(f"[AgentScheduler] Failed to mark corrupt task {task_id} as failed: {update_error}")
+                        log.debug(traceback.format_exc())
+                    self.__run_callbacks(
+                        "task_finished",
+                        task_id,
+                        is_img2img=is_img2img,
+                        is_ui=None,
+                        task=task,
+                        status=TaskStatus.FAILED,
+                        result={"images": [], "error": message},
+                    )
+                    self.__saved_images_path = []
+                    task = get_next_task()
+                    if not task:
+                        if not self.paused:
+                            time.sleep(1)
+                            self.__on_completed()
+                        break
+                    continue
+
                 task_meta = {
                     "is_img2img": is_img2img,
                     "is_ui": task_args.is_ui,
