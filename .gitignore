@@ -1,0 +1,40 @@
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Python environments and caches
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Extension runtime state
+*.log
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+cache.json
+task_scheduler.sqlite3
+outputs/
+tmp/
+log/
+
+# Frontend build artifacts
+ui/node_modules/
+ui/dist/
+ui/dist-ssr/
+ui/.vite/
+ui/*.local
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+
+# Test output
+test/stdout.txt
+test/stderr.txt
