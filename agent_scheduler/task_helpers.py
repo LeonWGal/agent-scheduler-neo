@@ -35,12 +35,17 @@ img2img_image_args_by_mode: Dict[int, List[List[str]]] = {
 
 def get_script_by_name(script_name: str, is_img2img: bool = False, is_always_on: bool = False) -> scripts.Script:
     script_runner = scripts.scripts_img2img if is_img2img else scripts.scripts_txt2img
-    available_scripts = script_runner.alwayson_scripts if is_always_on else script_runner.selectable_scripts
+    if not script_runner:
+        return None
+    available_scripts = getattr(script_runner, "alwayson_scripts" if is_always_on else "selectable_scripts", None)
+    if not available_scripts:
+        return None
 
     return next(
         (s for s in available_scripts if s.title().lower() == script_name.lower()),
         None,
     )
+
 
 
 def load_image_from_url(url: str):
@@ -386,12 +391,112 @@ def normalize_script_runner_index(script_args: List, is_img2img: bool = False) -
     return script_args
 
 
+_ALL_AD_ATTRS = (
+    "ad_model",
+    "ad_model_classes",
+    "ad_tab_enable",
+    "ad_tab_alias",
+    "ad_prompt",
+    "ad_negative_prompt",
+    "ad_confidence",
+    "ad_mask_filter_method",
+    "ad_mask_k",
+    "ad_mask_min_ratio",
+    "ad_mask_max_ratio",
+    "ad_x_offset",
+    "ad_y_offset",
+    "ad_dilate_erode",
+    "ad_mask_merge_invert",
+    "ad_mask_blur",
+    "ad_denoising_strength",
+    "ad_inpaint_only_masked",
+    "ad_inpaint_only_masked_padding",
+    "ad_use_inpaint_width_height",
+    "ad_inpaint_width",
+    "ad_inpaint_height",
+    "ad_use_steps",
+    "ad_steps",
+    "ad_use_cfg_scale",
+    "ad_cfg_scale",
+    "ad_use_checkpoint",
+    "ad_checkpoint",
+    "ad_use_vae",
+    "ad_vae",
+    "ad_use_sampler",
+    "ad_sampler",
+    "ad_scheduler",
+    "ad_use_noise_multiplier",
+    "ad_noise_multiplier",
+    "ad_restore_face",
+    "ad_controlnet_model",
+    "ad_controlnet_module",
+    "ad_controlnet_weight",
+    "ad_controlnet_guidance_start_end",
+    "ad_sam_model",
+    "ad_sam_keep_loaded",
+    "ad_sam_mask_hint",
+    "ad_sam_mask_hint_threshold",
+    "ad_sam_dilation",
+    "ad_sam_feather",
+    "ad_sam_threshold",
+    "ad_use_autotag",
+    "ad_autotag_general_thresh",
+    "ad_autotag_character_thresh",
+    "ad_autotag_hide_rating",
+    "ad_autotag_character_first",
+    "ad_autotag_remove_separator",
+)
+
+_LEGACY_AD_ATTRS = (
+    "ad_model",
+    "ad_model_classes",
+    "ad_tab_enable",
+    "ad_prompt",
+    "ad_negative_prompt",
+    "ad_confidence",
+    "ad_mask_filter_method",
+    "ad_mask_k",
+    "ad_mask_min_ratio",
+    "ad_mask_max_ratio",
+    "ad_x_offset",
+    "ad_y_offset",
+    "ad_dilate_erode",
+    "ad_mask_merge_invert",
+    "ad_mask_blur",
+    "ad_denoising_strength",
+    "ad_inpaint_only_masked",
+    "ad_inpaint_only_masked_padding",
+    "ad_use_inpaint_width_height",
+    "ad_inpaint_width",
+    "ad_inpaint_height",
+    "ad_use_steps",
+    "ad_steps",
+    "ad_use_cfg_scale",
+    "ad_cfg_scale",
+    "ad_use_checkpoint",
+    "ad_checkpoint",
+    "ad_use_vae",
+    "ad_vae",
+    "ad_use_sampler",
+    "ad_sampler",
+    "ad_scheduler",
+    "ad_use_noise_multiplier",
+    "ad_noise_multiplier",
+    "ad_restore_face",
+    "ad_controlnet_model",
+    "ad_controlnet_module",
+    "ad_controlnet_weight",
+    "ad_controlnet_guidance_start_end",
+)
+
+
 def default_adetailer_state(tab_index: int = 0) -> Dict[str, Any]:
     """Minimal ADetailer-Neo State dict (matches lib_adetailer.args.ADetailerArgs defaults)."""
     return {
         "ad_model": "None",
         "ad_model_classes": "",
         "ad_tab_enable": tab_index == 0,
+        "ad_tab_alias": "",
         "ad_prompt": "",
         "ad_negative_prompt": "",
         "ad_confidence": 0.3,
@@ -428,8 +533,40 @@ def default_adetailer_state(tab_index: int = 0) -> Dict[str, Any]:
         "ad_controlnet_module": "None",
         "ad_controlnet_weight": 1.0,
         "ad_controlnet_guidance_start_end": (0.0, 1.0),
+        "ad_sam_model": "None",
+        "ad_sam_keep_loaded": False,
+        "ad_sam_mask_hint": False,
+        "ad_sam_mask_hint_threshold": 0.5,
+        "ad_sam_dilation": 0,
+        "ad_sam_feather": 0,
+        "ad_sam_threshold": 0.0,
+        "ad_use_autotag": False,
+        "ad_autotag_general_thresh": 0.35,
+        "ad_autotag_character_thresh": 0.85,
+        "ad_autotag_hide_rating": True,
+        "ad_autotag_character_first": True,
+        "ad_autotag_remove_separator": True,
         "is_api": (),
     }
+
+
+def repair_shifted_adetailer_state(state: Dict[str, Any], tab_i: int = 0) -> Dict[str, Any]:
+    """Repair states captured by older enqueue-bridge where ad_tab_alias was omitted."""
+    repaired = default_adetailer_state(tab_i)
+    repaired["ad_model"] = state.get("ad_model", "None")
+    repaired["ad_model_classes"] = state.get("ad_model_classes", "")
+    repaired["ad_tab_enable"] = state.get("ad_tab_enable", True)
+    repaired["ad_tab_alias"] = ""
+
+    for i in range(3, len(_LEGACY_AD_ATTRS)):
+        target_attr = _ALL_AD_ATTRS[i]
+        src_key = _LEGACY_AD_ATTRS[i]
+        if src_key in state:
+            repaired[target_attr] = state[src_key]
+
+    if "is_api" in state and not isinstance(state["is_api"], tuple):
+        repaired["is_api"] = ()
+    return repaired
 
 
 def looks_like_adetailer_state(obj) -> bool:
@@ -441,6 +578,7 @@ def normalize_adetailer_script_args(script_args: List, is_img2img: bool = False)
     ADetailer-Neo stores per-tab settings in gr.State.
     Enqueue bridge may leave those slots as null — coerce to valid State dicts
     and convert JSON list guidance ranges back to tuples.
+    Also repairs legacy shifted dictionaries missing ad_tab_alias.
     """
     if not script_args:
         return script_args
@@ -448,7 +586,27 @@ def normalize_adetailer_script_args(script_args: List, is_img2img: bool = False)
     script_args = list(script_args)
     ad_script = get_script_by_name("adetailer", is_img2img=is_img2img, is_always_on=True)
     if ad_script is None:
+        # Fallback: repair/normalize any ADetailer states found anywhere in script_args
+        tab_i = 0
+        for i, val in enumerate(script_args):
+            if isinstance(val, dict) and looks_like_adetailer_state(val):
+                state = dict(val)
+                if isinstance(state.get("ad_mask_filter_method"), (float, int)):
+                    state = repair_shifted_adetailer_state(state, tab_i)
+                else:
+                    defaults = default_adetailer_state(tab_i)
+                    for k, v in defaults.items():
+                        if k not in state:
+                            state[k] = v
+                gse = state.get("ad_controlnet_guidance_start_end")
+                if isinstance(gse, list) and len(gse) == 2:
+                    state["ad_controlnet_guidance_start_end"] = (gse[0], gse[1])
+                if "is_api" in state and not isinstance(state["is_api"], tuple):
+                    state["is_api"] = ()
+                script_args[i] = state
+                tab_i += 1
         return script_args
+
 
     start = max(int(getattr(ad_script, "args_from", 0) or 0), 0)
     end = int(getattr(ad_script, "args_to", start) or start)
@@ -467,6 +625,16 @@ def normalize_adetailer_script_args(script_args: List, is_img2img: bool = False)
             script_args[i] = default_adetailer_state(tab_i)
         elif isinstance(val, dict):
             state = dict(val)
+            # Detect shifted keys (e.g. ad_mask_filter_method is float confidence like 0.2/0.3)
+            if isinstance(state.get("ad_mask_filter_method"), (float, int)):
+                state = repair_shifted_adetailer_state(state, tab_i)
+            else:
+                # Merge missing defaults (e.g. SAM or AutoTag)
+                defaults = default_adetailer_state(tab_i)
+                for k, v in defaults.items():
+                    if k not in state:
+                        state[k] = v
+
             # JSON round-trip: tuple → list
             gse = state.get("ad_controlnet_guidance_start_end")
             if isinstance(gse, list) and len(gse) == 2:
@@ -474,8 +642,6 @@ def normalize_adetailer_script_args(script_args: List, is_img2img: bool = False)
             # Preserve UI marker across JSON (list) vs pickle (tuple)
             if "is_api" in state and not isinstance(state["is_api"], tuple):
                 state["is_api"] = ()
-            if "ad_model" not in state:
-                state = {**default_adetailer_state(tab_i), **state}
             script_args[i] = state
         # Only treat dict-like slots as AD states (skip unexpected types)
         if isinstance(script_args[i], dict) and "ad_model" in script_args[i]:

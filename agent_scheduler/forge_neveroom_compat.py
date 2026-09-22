@@ -34,6 +34,8 @@ def materialize_inference_tensor(t: Any) -> Any:
     """Clone inference-mode tensors outside inference mode → normal tensors."""
     if t is None:
         return t
+    if isinstance(t, (list, tuple)):
+        return type(t)(materialize_inference_tensor(x) for x in t)
     is_inf = getattr(t, "is_inference", None)
     if not (callable(is_inf) and is_inf()):
         return t
@@ -112,8 +114,10 @@ def _patch_functional_embedding() -> None:
         return
 
     def embedding(input, weight, *args, **kwargs):
+        input = materialize_inference_tensor(input)
         weight = materialize_inference_tensor(weight)
-        return orig(input, weight, *args, **kwargs)
+        with torch.inference_mode(False):
+            return orig(input, weight, *args, **kwargs)
 
     torch.nn.functional.embedding = _mark(embedding)
 

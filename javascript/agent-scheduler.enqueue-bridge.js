@@ -50,6 +50,7 @@
     "ad_model",
     "ad_model_classes",
     "ad_tab_enable",
+    "ad_tab_alias",
     "ad_prompt",
     "ad_negative_prompt",
     "ad_confidence",
@@ -86,6 +87,19 @@
     "ad_controlnet_module",
     "ad_controlnet_weight",
     "ad_controlnet_guidance_start_end",
+    "ad_sam_model",
+    "ad_sam_keep_loaded",
+    "ad_sam_mask_hint",
+    "ad_sam_mask_hint_threshold",
+    "ad_sam_dilation",
+    "ad_sam_feather",
+    "ad_sam_threshold",
+    "ad_use_autotag",
+    "ad_autotag_general_thresh",
+    "ad_autotag_character_thresh",
+    "ad_autotag_hide_rating",
+    "ad_autotag_character_first",
+    "ad_autotag_remove_separator",
   ];
 
   function root() {
@@ -361,6 +375,7 @@
       ad_model: "None",
       ad_model_classes: "",
       ad_tab_enable: tabIndex === 0,
+      ad_tab_alias: "",
       ad_prompt: "",
       ad_negative_prompt: "",
       ad_confidence: 0.3,
@@ -397,6 +412,19 @@
       ad_controlnet_module: "None",
       ad_controlnet_weight: 1.0,
       ad_controlnet_guidance_start_end: [0.0, 1.0],
+      ad_sam_model: "None",
+      ad_sam_keep_loaded: false,
+      ad_sam_mask_hint: false,
+      ad_sam_mask_hint_threshold: 0.5,
+      ad_sam_dilation: 0,
+      ad_sam_feather: 0,
+      ad_sam_threshold: 0.0,
+      ad_use_autotag: false,
+      ad_autotag_general_thresh: 0.35,
+      ad_autotag_character_thresh: 0.85,
+      ad_autotag_hide_rating: true,
+      ad_autotag_character_first: true,
+      ad_autotag_remove_separator: true,
       is_api: [],
     };
   }
@@ -456,6 +484,8 @@
     if (model) state.ad_model = model;
     var tabEnable = findEl("#script_" + prefix + "_adetailer_ad_tab_enable" + suf + " input");
     if (tabEnable) state.ad_tab_enable = !!tabEnable.checked;
+    var tabAlias = findEl("#script_" + prefix + "_adetailer_ad_tab_alias" + suf + " input");
+    if (tabAlias && typeof tabAlias.value === "string") state.ad_tab_alias = tabAlias.value;
     var promptEl = findEl("#script_" + prefix + "_adetailer_ad_prompt" + suf + " textarea");
     if (promptEl && typeof promptEl.value === "string") state.ad_prompt = promptEl.value;
     var negEl = findEl("#script_" + prefix + "_adetailer_ad_negative_prompt" + suf + " textarea");
